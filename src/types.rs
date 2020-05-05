@@ -23,12 +23,15 @@ use actix_web::dev::FromParam;
 #[sql_type = "Citext"]
 pub struct CiString {
     value: String,
+    #[serde(skip_serializing, skip_deserializing)]
+    lower_value: String,
 }
 
 impl CiString {
     pub fn new() -> Self {
         CiString {
             value: String::new(),
+            lower_value: String::new(),
         }
     }
 }
@@ -40,7 +43,8 @@ impl FromParam for CiString {
     type Err = actix_web::error::UrlParseError;
     fn from_param(s: &str) -> Result<Self, Self::Err> {
         Ok(CiString {
-            value: s.to_lowercase()
+            value: s.to_string(),
+            lower_value: s.to_lowercase(),
         })
     }
 }
@@ -53,19 +57,19 @@ impl fmt::Display for CiString {
 
 impl PartialEq for CiString {
     fn eq(&self, other: &CiString) -> bool {
-        self.value == other.value
+        self.lower_value == other.lower_value
     }
 }
 
 impl PartialEq<String> for CiString {
     fn eq(&self, other: &String) -> bool {
-        self.value == other.to_lowercase()
+        self.lower_value == other.to_lowercase()
     }
 }
 
 impl PartialEq<&str> for CiString {
     fn eq(&self, other: &&str) -> bool {
-        self.value == other.to_lowercase()
+        self.lower_value == other.to_lowercase()
     }
 }
 
@@ -75,7 +79,7 @@ impl Eq for CiString {
 
 impl Hash for CiString {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.value.hash(hasher);
+        self.lower_value.hash(hasher);
     }
 }
 
@@ -102,7 +106,10 @@ impl Deref for CiString {
 impl FromStr for CiString {
     type Err = fmt::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(CiString { value: s.to_lowercase() })
+        Ok(CiString {
+            value: s.to_string(),
+            lower_value: s.to_lowercase()
+        })
     }
 }
 
@@ -115,7 +122,8 @@ impl Into<String> for CiString {
 impl From<String> for CiString {
     fn from(value: String) ->  Self {
         CiString {
-            value: value.to_lowercase()
+            value: value.clone(),
+            lower_value: value.to_lowercase()
         }
     }
 }
@@ -123,48 +131,52 @@ impl From<String> for CiString {
 impl From<&str> for CiString {
     fn from(value: &str) ->  Self {
         CiString {
-            value: value.to_lowercase()
+            value: value.to_string(),
+            lower_value: value.to_lowercase()
         }
     }
 }
 
 impl FromSql<Citext, Pg> for CiString {
-	fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-		use std::str;
-        let string = str::from_utf8(not_none!(bytes))?;
-        Ok(CiString{ value: string.to_lowercase() })
-	}
+    fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
+    use std::str;
+        let s = str::from_utf8(not_none!(bytes))?;
+        Ok(CiString{
+            value: s.to_string(),
+            lower_value: s.to_lowercase()
+        })
+    }
 }
 
 impl ToSql<Citext, Pg> for CiString {
-	fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         out.write_all(self.value.as_bytes())
             .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<Error + Send + Sync>)
-	}
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+    }
 }
 
 impl FromSql<Citext, Pg> for String {
-	fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-		use std::str;
-        let string = str::from_utf8(not_none!(bytes))?;
-        Ok(string.to_lowercase())
-	}
+    fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
+        use std::str;
+        let s = str::from_utf8(not_none!(bytes))?;
+        Ok(s.to_string())
+    }
 }
 
 impl ToSql<Citext, Pg> for String {
-	fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
-        out.write_all(self.to_lowercase().as_bytes())
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+        out.write_all(self.as_bytes())
             .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<Error + Send + Sync>)
-	}
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+    }
 }
 
 impl ToSql<Citext, Pg> for str {
-	fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
-        out.write_all(self.to_lowercase().as_bytes())
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+        out.write_all(self.as_bytes())
             .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<Error + Send + Sync>)
-	}
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+    }
 }
 
